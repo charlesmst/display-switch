@@ -2,26 +2,26 @@
   description = "display-switch";
 
   inputs = {
-    rust-overlay.url = "github:oxalica/rust-overlay";
-    flake-utils.follows = "rust-overlay/flake-utils";
-    nixpkgs.follows = "rust-overlay/nixpkgs";
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable"; # We want to use packages from the binary cache
+    flake-utils.url = "github:numtide/flake-utils";
+    gitignore = { url = "github:hercules-ci/gitignore.nix"; flake = false; };
   };
 
-  outputs = inputs: with inputs;
-    flake-utils.lib.eachDefaultSystem (system:
-      let
-        pkgs = nixpkgs.legacyPackages.${system};
-        code = pkgs.callPackage ./. { inherit nixpkgs system rust-overlay; };
-      in rec {
-        packages = {
-          app = code.app;
-          wasm = code.wasm;
-          all = pkgs.symlinkJoin {
-            name = "all";
-            paths = with code; [ app wasm ];
-          };
-        default = packages.all;
-        };
-      }
-    );
+  outputs = inputs@{ self, nixpkgs, flake-utils, ... }:
+  flake-utils.lib.eachSystem [ "x86_64-linux" ] (system: let
+    pkgs = nixpkgs.legacyPackages.${system};
+    gitignoreSrc = pkgs.callPackage inputs.gitignore { };
+  in rec {
+    packages.hello = pkgs.callPackage ./default.nix { inherit gitignoreSrc; };
+
+    legacyPackages = packages;
+
+    defaultPackage = packages.hello;
+
+    devShell = pkgs.mkShell {
+      CARGO_INSTALL_ROOT = "${toString ./.}/.cargo";
+
+      buildInputs = with pkgs; [ cargo rustc git ];
+    };
+  });
 }

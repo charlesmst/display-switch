@@ -1,27 +1,78 @@
 {
-  description = "display-switch";
+  description = "My cute Rust crate!";
 
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable"; # We want to use packages from the binary cache
-    flake-utils.url = "github:numtide/flake-utils";
-    gitignore = { url = "github:hercules-ci/gitignore.nix"; flake = false; };
+    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    naersk.url = "github:nmattia/naersk";
+    naersk.inputs.nixpkgs.follows = "nixpkgs";
   };
 
-  outputs = inputs@{ self, nixpkgs, flake-utils, ... }:
-  flake-utils.lib.eachSystem [ "x86_64-linux" ] (system: let
-    pkgs = nixpkgs.legacyPackages.${system};
-    gitignoreSrc = pkgs.callPackage inputs.gitignore { };
-  in rec {
-    packages.hello = pkgs.callPackage ./default.nix { inherit gitignoreSrc; };
+  outputs = { self, nixpkgs, naersk }:
+    let
+      cargoToml = (builtins.fromTOML (builtins.readFile ./Cargo.toml));
+      supportedSystems = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" ];
+      forAllSystems = f: nixpkgs.lib.genAttrs supportedSystems (system: f system);
+    in
+    {
+      overlay = final: prev: {
+        "${cargoToml.package.name}" = final.callPackage ./. { inherit naersk; };
+      };
 
-    legacyPackages = packages;
+      packages = forAllSystems (system:
+        let
+          pkgs = import nixpkgs {
+            inherit system;
+            overlays = [
+              self.overlay
+            ];
+          };
+        in
+        {
+          "${cargoToml.package.name}" = pkgs."${cargoToml.package.name}";
+        });
 
-    defaultPackage = packages.hello;
 
-    devShell = pkgs.mkShell {
-      CARGO_INSTALL_ROOT = "${toString ./.}/.cargo";
+      defaultPackage = forAllSystems (system: (import nixpkgs {
+        inherit system;
+        overlays = [ self.overlay ];
+      })."${cargoToml.package.name}");
 
-      buildInputs = with pkgs; [ cargo rustc git ];
+      checks = forAllSystems (system:
+        let
+          pkgs = import nixpkgs {
+            inherit system;
+            overlays = [
+              self.overlay
+            ];
+          };
+        in
+        {
+          format = pkgs.runCommand "check-format"
+            {
+              buildInputs = with pkgs; [ rustfmt cargo ];
+            } ''
+            ${pkgs.rustfmt}/bin/cargo-fmt fmt --manifest-path ${./.}/Cargo.toml -- --check
+            ${pkgs.nixpkgs-fmt}/bin/nixpkgs-fmt --check ${./.}
+            touch $out # it worked!
+          '';
+          "${cargoToml.package.name}" = pkgs."${cargoToml.package.name}";
+        });
+      devShell = forAllSystems (system:
+        let
+          pkgs = import nixpkgs {
+            inherit system;
+            overlays = [ self.overlay ];
+          };
+        in
+        pkgs.mkShell {
+          inputsFrom = with pkgs; [
+            pkgs."${cargoToml.package.name}"
+          ];
+          buildInputs = with pkgs; [
+            rustfmt
+            nixpkgs-fmt
+          ];
+          LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
+        });
     };
-  });
 }

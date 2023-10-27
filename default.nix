@@ -1,44 +1,55 @@
-{ pkgs ? import <nixpkgs> { }
-, stdenv ? pkgs.stdenv
-, lib ? stdenv.lib
-# A set providing `buildRustPackage :: attrsets -> derivation`
-, rustPlatform ? pkgs.rustPlatform
-, fetchFromGitHub ? pkgs.fetchFromGitHub
-, gitignoreSrc ? null
-, pkgconfig ? pkgs.pkgconfig
-, gtk3 ? pkgs.gtk3
-, glib ? pkgs.glib
-, gobject-introspection ? pkgs.gobject-introspection
+{ lib
+, naersk
+, stdenv
+, clangStdenv
+, hostPlatform
+, targetPlatform
+, pkg-config
+, libiconv
+, rustfmt
+, cargo
+, rustc
+  # , llvmPackages # Optional
+  # , protobuf     # Optional
 }:
 
 let
-  gitignoreSource =
-    if gitignoreSrc != null
-    then gitignoreSrc.gitignoreSource
-    else (import (fetchFromGitHub {
-      owner = "hercules-ci";
-      repo = "gitignore";
-      rev = "c4662e662462e7bf3c2a968483478a665d00e717";
-      sha256 = "0jx2x49p438ap6psy8513mc1nnpinmhm8ps0a4ngfms9jmvwrlbi";
-    }) { inherit lib; }).gitignoreSource;
+  cargoToml = (builtins.fromTOML (builtins.readFile ./Cargo.toml));
 in
-rustPlatform.buildRustPackage rec {
-  pname = "sample-flake-rust";
-  version = "0.0.1";
 
-  src = gitignoreSource ./.;
+naersk.lib."${targetPlatform.system}".buildPackage rec {
+  src = ./.;
 
   buildInputs = [
-    gtk3
-    glib
-    gobject-introspection
+    rustfmt
+    pkg-config
+    cargo
+    rustc
+    libiconv
   ];
-  nativeBuildInputs = [ pkgconfig ];
-  cargoSha256 = "sha256-0hfmV4mbr3l86m0X7EMYTOu/b+BjueVEbbyQz0KgOFY=";
+  checkInputs = [ cargo rustc ];
 
-  meta = with stdenv.lib; {
-    homepage = "";
-    description = "Sample flake repository for a Rust application";
-    license = licenses.mit;
+  doCheck = true;
+  CARGO_BUILD_INCREMENTAL = "false";
+  RUST_BACKTRACE = "full";
+  copyLibs = true;
+
+  # Optional things you might need:
+  #
+  # If you depend on `libclang`:
+  # LIBCLANG_PATH = "${llvmPackages.libclang}/lib";
+  #
+  # If you depend on protobuf:
+  # PROTOC = "${protobuf}/bin/protoc";
+  # PROTOC_INCLUDE = "${protobuf}/include";
+
+  name = cargoToml.package.name;
+  version = cargoToml.package.version;
+
+  meta = with lib; {
+    description = cargoToml.package.description;
+    homepage = cargoToml.package.homepage;
+    license = with licenses; [ mit ];
+    maintainers = with maintainers; [ ];
   };
 }

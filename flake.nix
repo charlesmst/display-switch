@@ -10,7 +10,7 @@
   outputs = { self, nixpkgs, naersk }:
     let
       cargoToml = (builtins.fromTOML (builtins.readFile ./Cargo.toml));
-      supportedSystems = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" ];
+      supportedSystems = [ "x86_64-linux"];
       forAllSystems = f: nixpkgs.lib.genAttrs supportedSystems (system: f system);
     in
     {
@@ -49,7 +49,8 @@
         {
           format = pkgs.runCommand "check-format"
             {
-              buildInputs = with pkgs; [ rustfmt cargo ];
+              buildInputs = with pkgs; [ rustfmt cargo    ];
+            
             } ''
             ${pkgs.rustfmt}/bin/cargo-fmt fmt --manifest-path ${./.}/Cargo.toml -- --check
             ${pkgs.nixpkgs-fmt}/bin/nixpkgs-fmt --check ${./.}

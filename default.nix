@@ -9,7 +9,8 @@
 , rustfmt
 , cargo
 , rustc
-  # , llvmPackages # Optional
+, udev
+  , llvmPackages # Optional
   # , protobuf     # Optional
 }:
 
@@ -21,11 +22,12 @@ naersk.lib."${targetPlatform.system}".buildPackage rec {
   src = ./.;
 
   buildInputs = [
-    rustfmt
+    # rustfmt
     pkg-config
     cargo
-    rustc
-    libiconv
+    # rustc
+    # libiconv
+    udev
   ];
   checkInputs = [ cargo rustc ];
 
@@ -37,7 +39,7 @@ naersk.lib."${targetPlatform.system}".buildPackage rec {
   # Optional things you might need:
   #
   # If you depend on `libclang`:
-  # LIBCLANG_PATH = "${llvmPackages.libclang}/lib";
+  LIBCLANG_PATH = "${llvmPackages.libclang}/lib";
   #
   # If you depend on protobuf:
   # PROTOC = "${protobuf}/bin/protoc";

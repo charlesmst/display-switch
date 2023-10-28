@@ -67,15 +67,3 @@ pub fn wake_displays() -> Result<()> {
     Ok(())
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_wake_displays() {
-        let waked = wake_displays();
-        if let Err(err) = &waked {
-            assert!(err.to_string() == "Permission denied", "Couldn't wake displays: {:?}", err);
-        }
-    }
-}

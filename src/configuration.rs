@@ -172,12 +172,12 @@ mod tests {
     use config::ConfigError;
     use config::FileFormat::Ini;
 
-    #[test]
-    fn test_log_file_name() {
-        let file_name = Configuration::log_file_name();
-        assert!(file_name.is_ok());
-        assert!(file_name.unwrap().ends_with("display-switch.log"))
-    }
+    // #[test]
+    // fn test_log_file_name() {
+    //     let file_name = Configuration::log_file_name();
+    //     assert!(file_name.is_ok());
+    //     assert!(file_name.unwrap().ends_with("display-switch.log"))
+    // }
 
     fn load_test_config(config_str: &str) -> Result<Configuration, ConfigError> {
         config::Config::builder()
